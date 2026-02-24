@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Finder</title>
+
+    <!-- Google Fonts: Syne (display) + DM Mono (monospace accents) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* ===========================
+         CSS Custom Properties
+      =========================== */
+      :root {
+        --bg: #0d0d0f;
+        --surface: #16161a;
+        --surface2: #1e1e24;
+        --border: #2a2a35;
+        --accent: #e8ff47;     /* neon yellow-green */
+        --accent2: #7b61ff;    /* violet */
+        --text: #f0f0f5;
+        --muted: #7a7a8c;
+        --error: #ff5566;
+        --radius: 12px;
+        --font-display: "Syne", sans-serif;
+        --font-mono: "DM Mono", monospace;
+      }
+
+      /* ===========================
+         Reset & Base
+      =========================== */
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-display);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        /* Subtle grid background */
+        background-image:
+          linear-gradient(rgba(232,255,71,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(232,255,71,0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+
+      /* ===========================
+         Main Card
+      =========================== */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 48px 40px;
+        width: 100%;
+        max-width: 560px;
+        box-shadow: 0 0 60px rgba(123, 97, 255, 0.08);
+      }
+
+      /* ===========================
+         Header
+      =========================== */
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .logo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 100px;
+        padding: 6px 16px;
+        margin-bottom: 24px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--accent);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .logo-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--accent);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+
+      h1 {
+        font-size: 42px;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+        margin-bottom: 12px;
+      }
+
+      h1 span {
+        color: var(--accent);
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+        font-weight: 400;
+      }
+
+      /* ===========================
+         Input Group
+      =========================== */
+      .input-group {
+        margin-bottom: 16px;
+      }
+
+      .input-label {
+        display: block;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 10px;
+      }
+
+      .input-wrap {
+        position: relative;
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      #urlInput {
+        flex: 1;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      #urlInput::placeholder {
+        color: var(--muted);
+      }
+
+      #urlInput:focus {
+        border-color: var(--accent2);
+        box-shadow: 0 0 0 3px rgba(123, 97, 255, 0.15);
+      }
+
+      /* ===========================
+         Extract Button
+      =========================== */
+      #extractBtn {
+        background: var(--accent);
+        color: #0d0d0f;
+        border: none;
+        border-radius: var(--radius);
+        padding: 14px 22px;
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s, opacity 0.2s, box-shadow 0.2s;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
+      }
+
+      #extractBtn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(232, 255, 71, 0.3);
+      }
+
+      #extractBtn:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      /* Disabled state while loading */
+      #extractBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ===========================
+         Loading Indicator
+      =========================== */
+      #loadingSection {
+        display: none;           /* hidden by default */
+        align-items: center;
+        gap: 12px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin-top: 16px;
+        font-size: 13px;
+        color: var(--muted);
+        font-family: var(--font-mono);
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      /* ===========================
+         Error Message
+      =========================== */
+      #errorMsg {
+        display: none;           /* hidden by default */
+        background: rgba(255, 85, 102, 0.08);
+        border: 1px solid rgba(255, 85, 102, 0.25);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        color: var(--error);
+        font-size: 13px;
+        margin-top: 16px;
+        line-height: 1.5;
+      }
+
+      /* ===========================
+         Audio Player Section
+      =========================== */
+      #audioSection {
+        display: none;           /* hidden until audio is ready */
+        margin-top: 24px;
+        border-top: 1px solid var(--border);
+        padding-top: 24px;
+        animation: fadeIn 0.4s ease;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .audio-title {
+        font-size: 11px;
+        font-family: var(--font-mono);
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 12px;
+      }
+
+      #videoTitle {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 16px;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Custom-styled audio player */
+      #audioPlayer {
+        width: 100%;
+        border-radius: var(--radius);
+        margin-bottom: 16px;
+        accent-color: var(--accent);
+        /* Small tweak: make the default browser audio element fit the dark theme */
+        filter: invert(0.05);
+      }
+
+      /* Download button */
+      #downloadBtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+        color: var(--text);
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+
+      #downloadBtn:hover {
+        border-color: var(--accent);
+        background: rgba(232, 255, 71, 0.05);
+        color: var(--accent);
+      }
+
+      .dl-icon {
+        font-size: 16px;
+      }
+
+      /* ===========================
+         Footer Note
+      =========================== */
+      .footer-note {
+        text-align: center;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        color: var(--muted);
+        margin-top: 32px;
+        opacity: 0.6;
+      }
+
+      /* ===========================
+         Responsive
+      =========================== */
+      @media (max-width: 480px) {
+        .card { padding: 32px 24px; }
+        h1 { font-size: 32px; }
+        .input-wrap { flex-direction: column; }
+        #extractBtn { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+
+      <!-- ======== Header ======== -->
+      <div class="header">
+        <div class="logo-badge">
+          <span class="logo-dot"></span>
+          Audio Finder
+        </div>
+        <h1>Extract<br /><span>Audio</span> Free</h1>
+        <p class="subtitle">
+          Paste any YouTube link and instantly get<br />a playable, downloadable MP3.
+        </p>
+      </div>
+
+      <!-- ======== URL Input ======== -->
+      <div class="input-group">
+        <label class="input-label" for="urlInput">Video URL</label>
+        <div class="input-wrap">
+          <input
+            type="url"
+            id="urlInput"
+            placeholder="https://www.youtube.com/watch?v=..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="extractBtn" onclick="extractAudio()">Extract</button>
+        </div>
+      </div>
+
+      <!-- ======== Loading Spinner ======== -->
+      <div id="loadingSection">
+        <div class="spinner"></div>
+        <span>Extracting audio... this may take a moment.</span>
+      </div>
+
+      <!-- ======== Error Message ======== -->
+      <div id="errorMsg"></div>
+
+      <!-- ======== Audio Player (hidden until ready) ======== -->
+      <div id="audioSection">
+        <div class="audio-title">Ready to play</div>
+        <div id="videoTitle"></div>
+
+        <!-- Native browser audio player -->
+        <audio id="audioPlayer" controls></audio>
+
+        <!-- Download button -->
+        <a id="downloadBtn" download>
+          <span class="dl-icon">⬇</span> Download MP3
+        </a>
+      </div>
+
+      <p class="footer-note">For personal use only · Respects fair use</p>
+    </div>
+
+    <script>
+      // ============================================================
+      // Audio Finder - Frontend Logic
+      // ============================================================
+
+      // Grab references to key DOM elements
+      const urlInput      = document.getElementById("urlInput");
+      const extractBtn    = document.getElementById("extractBtn");
+      const loadingSection = document.getElementById("loadingSection");
+      const errorMsg      = document.getElementById("errorMsg");
+      const audioSection  = document.getElementById("audioSection");
+      const audioPlayer   = document.getElementById("audioPlayer");
+      const downloadBtn   = document.getElementById("downloadBtn");
+      const videoTitle    = document.getElementById("videoTitle");
+
+      // Allow pressing Enter in the input to trigger extraction
+      urlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") extractAudio();
+      });
+
+      // -------------------------------------------------------
+      // Show an error message to the user
+      // -------------------------------------------------------
+      function showError(message) {
+        errorMsg.textContent = "⚠ " + message;
+        errorMsg.style.display = "block";
+      }
+
+      // -------------------------------------------------------
+      // Hide all status sections (used before a new request)
+      // -------------------------------------------------------
+      function resetUI() {
+        errorMsg.style.display   = "none";
+        loadingSection.style.display = "none";
+        audioSection.style.display = "none";
+
+        // Clear the old audio source so it doesn't keep a stale URL
+        audioPlayer.src = "";
+        downloadBtn.href = "";
+        videoTitle.textContent = "";
+      }
+
+      // -------------------------------------------------------
+      // Main function: called when user clicks "Extract"
+      // -------------------------------------------------------
+      async function extractAudio() {
+        const url = urlInput.value.trim();
+
+        if (!url) {
+          showError("Please enter a URL first.");
+          return;
+        }
+
+        resetUI();
+
+        loadingSection.style.display = "flex";
+        extractBtn.disabled = true;
+        extractBtn.textContent = "Extracting...";
+
+        try {
+          // Step 1: Get the video title quickly from /info
+          const infoRes = await fetch(`/info?url=${encodeURIComponent(url)}`);
+          if (!infoRes.ok) {
+            const data = await infoRes.json();
+            throw new Error(data.error || "Something went wrong.");
+          }
+          const info = await infoRes.json();
+          const title = info.title || "Extracted Audio";
+
+          // Update loading text to show we're now downloading
+          loadingSection.querySelector("span").textContent =
+            "Downloading & converting audio... please wait.";
+
+          // Step 2: Fetch the full MP3 from /extract as a blob
+          // This waits for yt-dlp + ffmpeg to finish on the server
+          const audioRes = await fetch(`/extract?url=${encodeURIComponent(url)}`);
+          if (!audioRes.ok) {
+            const data = await audioRes.json();
+            throw new Error(data.error || "Audio extraction failed.");
+          }
+
+          // Convert response to a local blob URL
+          const blob = await audioRes.blob();
+          const blobUrl = URL.createObjectURL(blob);
+
+          // Step 3: Wire up the audio player and download button
+          audioPlayer.src = blobUrl;
+
+          downloadBtn.href = blobUrl;
+          downloadBtn.download = `${title}.mp3`; // proper MP3 filename!
+
+          videoTitle.textContent = title;
+          audioSection.style.display = "block";
+
+          // Auto-play
+          audioPlayer.play().catch(() => {});
+
+        } catch (err) {
+          showError(err.message);
+        } finally {
+          loadingSection.style.display = "none";
+          loadingSection.querySelector("span").textContent =
+            "Extracting audio... this may take a moment.";
+          extractBtn.disabled = false;
+          extractBtn.textContent = "Extract";
+        }
+      }
+    </script>
+  </body>
+</html>
